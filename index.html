@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>D2D Console · live prototype</title>
+<title>D2D AI OS · live prototype</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -234,12 +234,17 @@ window.d2dTasks = (() => {
 // 15 BUILD agents fully specified. Project 2 DEPLOY agents stubbed for forward-compat.
 
 window.AGENT_PHASES = [
+  // ── Candidate side (BUILD pipeline) ─────────────────────────────
   { key: "Acquisition", color: "#3b82f6", agents: ["Campaign Planner", "Sourcer", "Sales Advisor"] },
   { key: "Selection",   color: "#c2410c", agents: ["Selection Bot", "Admission Advisor"] },
   { key: "Onboarding",  color: "#15803d", agents: ["Onboarding"] },
   { key: "Training",    color: "#854d0e", agents: ["Personal Trainer", "Personal Mentor", "Motivator", "Peer Mentor System", "Live Session Tracker"] },
   { key: "Examination", color: "#a16207", agents: ["Examiner", "Leaderboard"] },
   { key: "Graduation",  color: "#6b21a8", agents: ["Promotion Bot"] },
+  // ── Client side (mirror funnel) ─────────────────────────────────
+  { key: "Client Acquisition", color: "#0e7490", agents: ["Client Sourcer", "Client Sales Advisor", "Client Onboarding"] },
+  { key: "Engagement",         color: "#7c3aed", agents: ["JD Generator", "Task Planner", "Client Concierge", "Outcome Tracker"] },
+  // ── Brain + DEPLOY ──────────────────────────────────────────────
   { key: "Central Brain", color: "#991b1b", agents: ["Orchestrator"] },
   { key: "DEPLOY (Project 2)", color: "#475569", agents: ["Matchmaker", "Field Monitor", "Quality Controller", "Billing"] },
 ];
@@ -887,6 +892,269 @@ window.AGENT_CATALOG = {
     tools: ["TBD"],
     modelTier: "TBD",
     sla: "TBD",
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // CLIENT-SIDE AGENTS — mirror the candidate funnel for businesses.
+  // Driven by Ajay's call: D2D is a two-sided platform. Clients are acquired,
+  // sold to, onboarded, then engaged via WhatsApp + platform for 30 days.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  "Client Sourcer": {
+    phase: "Client Acquisition",
+    audience: "Client-facing — talks to business owners (MSMEs, traders, manufacturers).",
+    role: "Scouts businesses likely to hire an AI intern. Opens the WhatsApp thread.",
+    reportsTo: "Campaign Planner",
+    handsOffTo: ["Client Sales Advisor (MAYBE)", "Client Onboarding (YES)"],
+    mission: "Find Rameshbhai-type MSME owners — tier-2/3 cities, ₹10L–₹5Cr revenue — who'd benefit from an AI intern, and open a thread that doesn't feel like a cold pitch.",
+    jobDescription: [
+      "Pull inbound leads from Campaign Planner (FB / IG / LinkedIn / Naukri ads).",
+      "Enrich each lead: business type, city, GST turnover band, language preference.",
+      "Send a personalised opening: 'Bhai, ek AI intern free 30 din ke liye try karoge? Aapke shop ke liye banaya hai.'",
+      "Classify response: YES / MAYBE / NO.",
+      "YES → Client Onboarding. MAYBE → Client Sales Advisor. NO → log reason.",
+      "Detect language (Hindi/Gujarati/Tamil/etc.) and tag for all downstream bots.",
+    ],
+    inputs: "Campaign Planner leads + outbound list (Justdial, IndiaMART, GST registry).",
+    outputs: "Opened WhatsApp threads tagged with intent, language, business domain, source channel.",
+    kras: [
+      { kra: "Lead-to-thread rate", measure: "% of leads that respond to first message (target 25%+)." },
+      { kra: "YES conversion", measure: "% of responders who say YES to free 30-day trial." },
+      { kra: "Quality of sourcing", measure: "% of YES clients who reach engagement (Day 1 of trial)." },
+      { kra: "No-spam compliance", measure: "Zero unsolicited messages to opted-out numbers." },
+    ],
+    flowLogic: "Activates on inbound ad lead OR scheduled outbound list. Sends personalised first message. Response classified immediately. Routes to Sales Advisor / Onboarding / dead. Reports daily numbers to Orchestrator.",
+    whatCanGoWrong: [
+      "Generic pitch ('AI for your business!') → owners ignore.",
+      "Wrong language detected → English to a Gujarati-only shop owner.",
+      "Pitches AI consultant (sounds expensive) instead of AI intern (free trial).",
+    ],
+    tools: ["WhatsApp Business API", "IndiaMART / Justdial scraping", "GST public registry", "Language detection"],
+    modelTier: "Haiku 4.5 · high volume",
+    sla: "First contact within 4h of lead",
+    example: {
+      in: "Lead: Ramesh Patel · Surat Saree Wholesale · GST ₹35L/yr · Gujarati",
+      out: "Rameshbhai, namaskar 🙏 Hum D2D se hain. Ek AI banda — woh aapke 400 sarees ka WhatsApp catalog 5 min mein bana sakta hai. 30 din free. Pasand aaye toh continue, nahin toh band. Try karna chahenge?",
+    },
+  },
+
+  "Client Sales Advisor": {
+    phase: "Client Acquisition",
+    audience: "Client-facing — closes MAYBE business owners.",
+    role: "Handles objections from interested-but-hesitant clients. Closes MAYBE → YES.",
+    reportsTo: "Orchestrator",
+    handsOffTo: ["Client Onboarding (on YES)"],
+    mission: "Take 'sochkar batata hoon' to a signed-up business. Without overpromising, without spam, without faking outcomes.",
+    jobDescription: [
+      "Receive MAYBE clients from Client Sourcer with full thread context.",
+      "Follow up within 24h with a personalised message.",
+      "Handle the standard objections: 'AI useless hai', 'past mein try kiya, nahin chala', 'paisa kahan jayega', 'beta ko poochna padega'.",
+      "Share proof: 1-min videos of other MSMEs, before/after metrics.",
+      "Anchor on the wedge: '30 din free hai. Pasand nahin aaya → band. Risk zero.'",
+      "After 3 follow-ups → mark DEAD. Stop.",
+      "NEVER promise a specific revenue lift. Frame as 'try it'.",
+    ],
+    inputs: "MAYBE clients from Client Sourcer with profile + thread.",
+    outputs: "Converted YES (→ Client Onboarding) OR DEAD. Objection patterns logged for ad creative improvement.",
+    kras: [
+      { kra: "MAYBE → YES conversion", measure: "% of MAYBE clients who agree to start trial (target 35%+)." },
+      { kra: "Response time", measure: "First follow-up < 24h." },
+      { kra: "No false promises", measure: "Zero quantified revenue/outcome guarantees made." },
+      { kra: "3-touch discipline", measure: "Zero MAYBEs contacted more than 3 times." },
+    ],
+    flowLogic: "3-touch nurture: Day 1 follow-up, Day 3 proof video, Day 5 final 'last chance' nudge. YES → Onboarding. No reply after 3 → DEAD. Objections logged for marketing feedback.",
+    whatCanGoWrong: [
+      "Pushes too hard → MSME owner blocks D2D number.",
+      "Promises specific lifts D2D can't guarantee.",
+      "Wrong tone — too formal English for a Gujarati trader.",
+    ],
+    tools: ["WhatsApp Business API", "Proof-video library", "Objection-handling scripts"],
+    modelTier: "Sonnet 4.6 · nuance",
+    sla: "First follow-up < 24h",
+  },
+
+  "Client Onboarding": {
+    phase: "Client Acquisition",
+    audience: "Client-facing — collects business KYC + sets up trial.",
+    role: "Takes a confirmed client to fully-onboarded in under 30 minutes.",
+    reportsTo: "Orchestrator",
+    handsOffTo: ["JD Generator (kicks off requirement capture)"],
+    mission: "Make the path from 'haan main try karunga' to 'intern starts tomorrow' frictionless. Business KYC, payment method, WhatsApp connect, all in one WhatsApp flow.",
+    jobDescription: [
+      "Collect business KYC: GST number (or 'no GST' option), PAN, business name + address.",
+      "Verify GST against public registry (validates name match).",
+      "Set up payment method: UPI / bank / cards (tokenized, only charged after Day 30 if continued).",
+      "Link client's WhatsApp Business account (or note they'll use personal).",
+      "Create client profile in D2D system with full context.",
+      "Send onboarding confirmation: trial start date + 'JD Generator will call you in 5 min'.",
+      "Trigger JD Generator immediately.",
+    ],
+    inputs: "Confirmed client from Sales Advisor or Sourcer.",
+    outputs: "Verified business profile, payment method on file (not yet charged), WhatsApp linked. JD Generator activated.",
+    kras: [
+      { kra: "Onboarding completion", measure: "% of YES clients who finish KYC within 24h (target 80%+)." },
+      { kra: "GST verification accuracy", measure: "Zero name-mismatch errors." },
+      { kra: "Time to onboard", measure: "End-to-end < 30 min for ready clients." },
+      { kra: "Drop-off detection", measure: "Clients silent > 24h get one nudge then escalate." },
+    ],
+    flowLogic: "Triggered when Sales Advisor or Sourcer marks YES. WhatsApp flow: one question at a time. GST verify → UPI verify → WhatsApp link → confirm. Profile created. JD Generator triggered. Reports to Orchestrator.",
+    whatCanGoWrong: [
+      "GST verification flaky for tiny businesses without GST → no fallback.",
+      "Payment setup feels like commitment ('lekin maine kaha tha free') → loses trust.",
+      "Long form → drop-off at field 3.",
+    ],
+    tools: ["WhatsApp Business API", "GST public registry API", "Razorpay/Cashfree (tokenization)", "Postgres"],
+    modelTier: "Haiku 4.5 · structured flow",
+    sla: "Onboard < 30 min for ready clients",
+  },
+
+  "JD Generator": {
+    phase: "Engagement",
+    audience: "Client-facing — turns vague requirements into a structured JD.",
+    role: "Listens to the client describe what they need (voice / doc / text) and produces a structured Job Description an intern can act on.",
+    reportsTo: "Orchestrator",
+    handsOffTo: ["Matchmaker (with JD as input)"],
+    mission: "MSMEs don't know how to write a JD. They know their problem. JD Generator listens, asks 3 clarifying questions, produces a JD that's matchable and measurable.",
+    jobDescription: [
+      "Accept voice note, document, or text from client describing their need.",
+      "Transcribe voice (Whisper) and detect language.",
+      "Ask 3 clarifying questions max: scope, duration expectation, daily time commitment.",
+      "Generate structured JD: title, responsibilities, skills, tools (Claude, n8n, WhatsApp), success metric.",
+      "Share JD back to client in their language for approval — one-tap approve / 'edit' button.",
+      "On approve → hand to Matchmaker with JD + client profile.",
+      "Keep template library by domain (retail, F&B, services, manufacturing).",
+    ],
+    inputs: "Voice/doc/text from client + business profile from Client Onboarding.",
+    outputs: "Structured JD (approved by client) + initial success metric for outcome tracking. Routed to Matchmaker.",
+    kras: [
+      { kra: "JD-on-first-pass approval", measure: "% of generated JDs approved without edits (target 70%+)." },
+      { kra: "Time to JD", measure: "Voice note → approved JD < 10 min." },
+      { kra: "Measurable metrics", measure: "Every JD has a quantifiable success metric." },
+      { kra: "Language fidelity", measure: "JD in client's preferred language; technical terms explained." },
+    ],
+    flowLogic: "Activates post-Onboarding. Listens to client's input. Asks max 3 clarifying questions. Generates JD. Sends for approval. On approve → Matchmaker. Iterates if rejected.",
+    whatCanGoWrong: [
+      "Over-asks clarifying questions → client gives up.",
+      "JD too generic → Matchmaker can't shortlist well.",
+      "No measurable success metric → outcome tracking later fails.",
+      "Transcription error on Gujarati / Tamil voice notes.",
+    ],
+    tools: ["WhatsApp Business API", "Whisper (voice → text)", "JD template library (per domain)", "Translation"],
+    modelTier: "Sonnet 4.6 · structured generation",
+    sla: "Approved JD < 10 min",
+    example: {
+      in: "Voice (Gujarati): 'Mara saree shop maa, WhatsApp pe customers questions puchhe chhe. Koi reply karto nathi time-thi. Mane ek banda joi chhe je 9 thi 7 reply karu.'",
+      out: "JD: WhatsApp Customer Service Intern · 9am-7pm · Gujarati + Hindi · Skills: Claude, WhatsApp catalog, basic CRM · Success: 95% response within 10 min, 30% catalog→inquiry conversion.",
+    },
+  },
+
+  "Task Planner": {
+    phase: "Engagement",
+    audience: "Client-facing (visible on dashboard) + intern-facing (gets tasks).",
+    role: "Builds the 30-day plan. Breaks the JD into weekly milestones + daily tasks. Adapts as the engagement progresses.",
+    reportsTo: "Orchestrator",
+    handsOffTo: ["Personal Mentor (helps intern)", "Outcome Tracker (measures milestones)"],
+    mission: "An intern + a vague JD = chaos. Task Planner turns the JD into a Week 1 Setup → Week 2 First Wins → Week 3 Measure → Week 4 Decide framework with concrete daily tasks.",
+    jobDescription: [
+      "Take approved JD + matched intern's skill profile.",
+      "Generate the 30-day plan: 4 weekly cards (Setup / First Wins / Measure / Decide).",
+      "Auto-populate Week 1 with concrete daily tasks (3–5/day).",
+      "Re-plan dynamically: if Week 1 finishes early → more in Week 2; if behind → flag QC.",
+      "Sync plan to client dashboard + intern's WhatsApp.",
+      "Tag every task with the success metric it contributes to.",
+      "Suggest task batches the intern can do (Claude prompts, n8n flows, WA scripts).",
+    ],
+    inputs: "Approved JD + matched intern's skill profile from Matchmaker.",
+    outputs: "30-day plan (4 weeks × tasks). Daily task feed. Re-plans on slippage.",
+    kras: [
+      { kra: "Plan completeness", measure: "All 30 days planned by Day 1; concrete tasks for Week 1 from Day 1." },
+      { kra: "Plan adherence", measure: "% of planned tasks attempted (target 90%+)." },
+      { kra: "Re-plan responsiveness", measure: "Slippage detected within 24h, re-plan pushed within 48h." },
+      { kra: "Metric alignment", measure: "100% of tasks linked to a JD success metric." },
+    ],
+    flowLogic: "Activates when Matchmaker confirms a pairing. Generates plan immediately. Visible on client dashboard same day. Pushes Day 1 tasks to intern's WhatsApp by 7:30 IST next morning. Re-plans nightly.",
+    whatCanGoWrong: [
+      "Plan too ambitious → Week 1 fail kills momentum.",
+      "Tasks don't tie to success metric → Day 30 outcome is unmeasurable.",
+      "No re-planning → plan becomes stale by Week 2.",
+    ],
+    tools: ["Task scheduling engine", "WhatsApp Business API (intern push)", "Dashboard sync"],
+    modelTier: "Sonnet 4.6 · structured planning",
+    sla: "Day-0 plan within 2h of match",
+  },
+
+  "Client Concierge": {
+    phase: "Engagement",
+    audience: "Client-facing — always-on assistant on BOTH WhatsApp and dashboard.",
+    role: "The client's 9-second-reply assistant. Bridges the two interfaces (WhatsApp + platform).",
+    reportsTo: "Orchestrator",
+    handsOffTo: ["Quality Controller (escalation)", "Field Monitor (digest data)"],
+    mission: "Rameshbhai has questions all day. 'Intern ne kya kiya?' 'Yeh task achha nahin hai.' 'Continue karna hai?' Concierge answers on WhatsApp instantly AND surfaces it on the platform — same conversation, two windows.",
+    jobDescription: [
+      "Listen on WhatsApp 24/7. Reply in < 9 seconds.",
+      "Mirror every WhatsApp interaction onto the platform dashboard (so client + operator see same state).",
+      "Push proactive updates on WhatsApp: 'Intern ne aaj 12 catalog photos update kiye'.",
+      "Handle approval requests inline: 'Yeh draft theek hai? Reply HAAN / NAHI'.",
+      "On escalation signals (anger, scope drift, ghosting) → flag QC immediately.",
+      "Schedule the 30-day decision conversation on Day 28.",
+      "Surface day-of-week activity summaries on Sunday evening.",
+    ],
+    inputs: "Inbound WhatsApp messages + activity stream from intern + platform actions.",
+    outputs: "WhatsApp replies < 9s. Dashboard state synced. Escalations to QC. Sunday digests.",
+    kras: [
+      { kra: "Response time", measure: "Average WhatsApp reply < 9s." },
+      { kra: "Interface sync", measure: "Every WA message visible on dashboard within 5s." },
+      { kra: "Approval turnaround", measure: "Median approval ask → client response < 30 min." },
+      { kra: "Escalation accuracy", measure: "% of QC escalations humans agree are real (target 85%+)." },
+      { kra: "Client NPS", measure: "Monthly micro-survey — target 4.5+/5 on 'concierge feels helpful'." },
+    ],
+    flowLogic: "Always listening on both channels. Inbound → reply in 9s. Mirror state to dashboard. Push proactive updates. Day 28 → schedule decision call. Day 30 → present outcome + 'continue / stop' card.",
+    whatCanGoWrong: [
+      "Replies feel canned → client stops engaging.",
+      "WhatsApp ↔ dashboard sync lag → client sees stale data on dashboard.",
+      "Too many proactive pings → owner mutes the thread.",
+      "Misses real escalation (angry message tagged as routine).",
+    ],
+    tools: ["WhatsApp Business API", "Platform dashboard API", "Sentiment analysis", "Notification scheduler"],
+    modelTier: "Sonnet 4.6 · empathy + speed",
+    sla: "Reply < 9s; dashboard sync < 5s",
+  },
+
+  "Outcome Tracker": {
+    phase: "Engagement",
+    audience: "Client-facing + Operator-facing — measures the 30-day outcome.",
+    role: "Measures what the intern actually delivered against the JD's success metric. Powers the Day-30 'pay or stop' decision.",
+    reportsTo: "Orchestrator",
+    handsOffTo: ["Billing (Day 30 if client continues)", "Promotion Bot (feeds intern's rank signals)"],
+    mission: "No subjective vibes. By Day 30, the client sees a hard number — 'Catalog inquiries up 28%, response time down 4× — pay ₹X to continue, or stop.' Outcome decides everything.",
+    jobDescription: [
+      "Capture baseline from JD's success metric on Day 0.",
+      "Pull live signals daily (WhatsApp delivery rates, sales data if connected, catalog views).",
+      "Update progress cards: Setup ✓ / First Wins ✓ / Measure (live) / Decide (Day 28).",
+      "Generate mid-trial review on Day 14 (signed off by Field Monitor).",
+      "Produce Day 28 outcome report: baseline vs current, % delta, qualitative wins.",
+      "Push to client dashboard + WhatsApp on Day 28 with 'Continue at ₹X/mo' card.",
+      "Feed outcome data back to Promotion Bot (improves intern's D2D Rank).",
+    ],
+    inputs: "JD success metric baseline + daily signals (WA, CRM if connected, manual client check-ins).",
+    outputs: "Live progress cards (4 weekly milestones). Day-14 mid-review. Day-28 final outcome with delta. Decision card.",
+    kras: [
+      { kra: "Baseline capture", measure: "100% of engagements have a Day-0 baseline." },
+      { kra: "Mid-trial signal", measure: "Day 14 review delivered on time, no exceptions." },
+      { kra: "Outcome quantification", measure: "Day 28 report has a hard % delta on the JD's metric." },
+      { kra: "Decision conversion", measure: "% of clients who decide (yes/no) within 48h of Day 28 report (target 80%+)." },
+      { kra: "Forecast accuracy", measure: "Day 14 projection vs Day 28 actual within ±15%." },
+    ],
+    flowLogic: "Day 0 → capture baseline. Days 1–13 → quiet, accumulating data. Day 14 → mid-review. Days 15–27 → final-push tracking. Day 28 → outcome report + decision card. Day 30 → Billing kicks in or engagement closes.",
+    whatCanGoWrong: [
+      "No baseline captured → Day 28 has nothing to compare against.",
+      "Metric isn't measurable (vague JD) → outcome is just 'looked good'.",
+      "Mid-review missed → client surprised at Day 28.",
+      "Continue/stop decision delayed past Day 30 → ambiguity, billing risk.",
+    ],
+    tools: ["Analytics engine", "Data connectors (WhatsApp Business stats, Razorpay/Cashfree, sheets)", "Dashboard sync", "WhatsApp Business API"],
+    modelTier: "Sonnet 4.6 (report writing) · deterministic (metrics)",
+    sla: "Day 14 review on time; Day 28 report by 10am",
   },
 };
 
@@ -1791,14 +2059,14 @@ function Welcome({ theme, go }) {
         Pick a workspace to begin.
       </div>
       <div style={{ marginTop: 24, maxWidth: 680, fontSize: 16, color: theme.ink2, lineHeight: 1.55 }}>
-        D2D isn't one product — it's four, stitched together by 15 AI agents (Project 1: BUILD). This console is a click-through of all four from the inside. Open any workspace and use it like the real thing: pick responses, resolve queues, watch counters tick. When you approve what you see, <b>Claude Code builds it for real</b>.
+        D2D isn't one product — it's four, stitched together by 22 AI agents — 15 on the candidate funnel, 7 on the client funnel. This console is a click-through of all four from the inside. Open any workspace and use it like the real thing: pick responses, resolve queues, watch counters tick. When you approve what you see, <b>Claude Code builds it for real</b>.
       </div>
 
       <div style={{ marginTop: 48, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, maxWidth: 1100 }}>
         {[
           { id: "candidate", n: "①", t: "Candidate workspace", who: "What Priya sees", d: "WhatsApp intake, bootcamp day, Friday's gate test, the rank she earns.", tags: ["WhatsApp-first", "Mobile", "Hindi/English"], c: theme.accent },
           { id: "client",    n: "②", t: "Client workspace",    who: "What Rameshbhai sees", d: "Pick from 3 matched consultants, then a daily dashboard of what yours did today.", tags: ["MSME owner", "Gujarati + Hindi", "No jargon"], c: theme.info },
-          { id: "operator",  n: "③", t: "Operator workspace",  who: "What Anjali sees", d: "Today's decisions. Four cards, four clicks, one human managing 173 consultants.", tags: ["Founder-only", "Delegated ops", "15 agents"], c: theme.ok },
+          { id: "operator",  n: "③", t: "Operator workspace",  who: "What Anjali sees", d: "Today's decisions. Four cards, four clicks, one human managing 173 consultants.", tags: ["Founder-only", "Delegated ops", "22 agents"], c: theme.ok },
           { id: "investor",  n: "④", t: "Investor workspace",  who: "What the board sees", d: "Live pulse, unit economics, defensibility. Same data Anjali runs on, framed for capital.", tags: ["Live metrics", "Unit econ", "Moat"], c: theme.warn },
         ].map(c => (
           <button key={c.id} onClick={() => go(c.id)} style={{
@@ -3102,7 +3370,7 @@ const CANDS = [
       { who: "Mentor · Batch 19", quote: "Asks the right questions. Strong with older shop owners — doesn't patronise." },
     ],
     availability: "Mon–Sat 10 AM–7 PM · 2 site visits/week included",
-    rate: "₹25,000/mo · first 2 weeks free",
+    rate: "₹25,000/mo · first 30 days free",
   },
   {
     n: "Rohan Desai", city: "Vadodara", rank: "L2", score: 79.6, fit: 78,
@@ -3136,7 +3404,7 @@ const CANDS = [
       { who: "Hiren Shah (prior client)", quote: "Works hard. Weekly visits chalte hain but daily presence nahi mila." },
     ],
     availability: "Weekly 2-day site visits · WhatsApp daily",
-    rate: "₹22,000/mo · first 2 weeks free",
+    rate: "₹22,000/mo · first 30 days free",
   },
   {
     n: "Ayesha Khan", city: "Mumbai", rank: "L3", score: 88.1, fit: 71,
@@ -3168,7 +3436,7 @@ const CANDS = [
       { who: "Fatima Merchant (prior client)", quote: "Top-tier. But she's remote — better for bigger operations with an on-site manager." },
     ],
     availability: "Remote · 1 monthly on-site visit · WhatsApp async",
-    rate: "₹38,000/mo · first 2 weeks free",
+    rate: "₹38,000/mo · first 30 days free",
   },
 ];
 
@@ -3178,8 +3446,36 @@ function MatchFlow({ t, onMatch, onAgent }) {
 
   return (
     <>
-      <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, letterSpacing: -0.5, lineHeight: 1.15, marginBottom: 6, maxWidth: 720 }}>The <AgentLink name="Matchmaker" onAgent={onAgent} theme={t}>Matchmaker</AgentLink> has ranked 3 consultants for your business.</div>
-      <div style={{ fontSize: 13, color: t.muted, marginBottom: 20 }}>Tap any card for a full profile — prior clients, skills, and verified references.</div>
+      {/* Client acquisition journey banner — what happened before this screen */}
+      <div style={{ padding: 16, borderRadius: 12, background: t.surface, border: `1px solid ${t.line}`, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.muted, fontWeight: 700, textTransform: "uppercase" }}>How Rameshbhai got here · the client funnel</div>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 1, color: t.accent, fontWeight: 700 }}>22 minutes · 0 humans</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+          {[
+            { a: "Campaign Planner",       step: "1", t: "FB ad", desc: "'Need an AI intern? Free 30 days.' Tapped on Instagram." },
+            { a: "Client Sourcer",         step: "2", t: "WA opens", desc: "Personalised first message in Gujarati. 4-min reply." },
+            { a: "Client Sales Advisor",   step: "3", t: "Objection", desc: "'AI fraud hai?' handled with proof video. 8 min." },
+            { a: "Client Onboarding",      step: "4", t: "Sign-up", desc: "GST + UPI tokenised. Not yet charged. 6 min." },
+            { a: "JD Generator",           step: "5", t: "JD ready", desc: "Voice note → structured JD approved. 4 min." },
+          ].map((s, i) => (
+            <div key={i} style={{ padding: "10px 12px", background: t.bg, border: `1px solid ${t.line2}`, borderRadius: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ width: 16, height: 16, borderRadius: 8, background: t.accent, color: t.accentInk, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700 }}>{s.step}</span>
+                <div style={{ fontSize: 9, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.2, color: t.muted, fontWeight: 700, textTransform: "uppercase" }}>{s.t}</div>
+              </div>
+              <div style={{ fontSize: 11, color: t.ink2, lineHeight: 1.4, marginBottom: 6 }}>{s.desc}</div>
+              <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", color: t.accent, fontWeight: 700 }}>
+                <AgentLink name={s.a} onAgent={onAgent} theme={t} style={{ color: t.accent }}>{s.a}</AgentLink>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 30, letterSpacing: -0.5, lineHeight: 1.15, marginBottom: 6, maxWidth: 720 }}>The <AgentLink name="Matchmaker" onAgent={onAgent} theme={t}>Matchmaker</AgentLink> has ranked 3 AI interns for your business.</div>
+      <div style={{ fontSize: 13, color: t.muted, marginBottom: 20 }}>30 days free for whichever one you pick. Tap any card for the full profile.</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
         {CANDS.map((c, i) => {
           const isSel = sel === i, isTop = i === 0;
@@ -3214,7 +3510,7 @@ function MatchFlow({ t, onMatch, onAgent }) {
         <div style={{ marginTop: 20, padding: 18, borderRadius: 12, background: t.ink, color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, animation: "fadeUp .3s" }}>
           <div>
             <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.accent, textTransform: "uppercase", fontWeight: 700 }}>Ready to confirm</div>
-            <div style={{ fontSize: 15, marginTop: 3 }}>{CANDS[sel].n} will contact you on WhatsApp tomorrow 11 AM. First 2 weeks free.</div>
+            <div style={{ fontSize: 15, marginTop: 3 }}>{CANDS[sel].n} will contact you on WhatsApp tomorrow 11 AM. <b>30 days free.</b> Pay only if the outcome lands.</div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={() => setDetailIdx(sel)} style={{ padding: "12px 18px", background: "transparent", color: "#fff", border: "1px solid rgba(255,255,255,0.25)", borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>See full profile</button>
@@ -3368,7 +3664,7 @@ function CandidateDetail({ t, c, onClose, onPick, onAgent }) {
 
         {/* Sticky action bar */}
         <div style={{ position: "sticky", bottom: 0, padding: "14px 36px", background: t.surface, borderTop: `1px solid ${t.line}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div style={{ fontSize: 12, color: t.muted }}>Trial period · first 2 weeks free · cancel anytime.</div>
+          <div style={{ fontSize: 12, color: t.muted }}>Trial period · 30 days free · pay only if the outcome lands · cancel anytime.</div>
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={onClose} style={{ padding: "11px 18px", background: "transparent", color: t.ink, border: `1px solid ${t.line}`, borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 }}>Back to list</button>
             <button onClick={onPick} style={{ padding: "11px 22px", background: t.accent, color: t.accentInk, border: 0, borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700 }}>Confirm {c.n.split(" ")[0]} →</button>
@@ -3422,7 +3718,8 @@ function ClientDash({ t, state, onAgent }) {
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: `1px solid ${t.line}` }}>
         {[
-          { id: "overview", label: "Overview", hint: "KPIs + activity" },
+          { id: "overview", label: "Platform", hint: "30-day plan + outcomes" },
+          { id: "whatsapp", label: "WhatsApp", hint: "quick chat · Client Concierge" },
           { id: "tasks", label: `Tasks`, hint: `${tasks.length} total`, badge: needsAttention },
         ].map(x => {
           const active = tab === x.id;
@@ -3443,6 +3740,7 @@ function ClientDash({ t, state, onAgent }) {
       </div>
 
       {tab === "overview" && <OverviewTab t={t} state={state} tasks={tasks} goTasks={() => setTab("tasks")} onAgent={onAgent}/>}
+      {tab === "whatsapp" && <WhatsAppPanel t={t} state={state} onAgent={onAgent}/>}
       {tab === "tasks" && <TasksTab t={t} tasks={tasks} counts={counts} onOpen={setOpenTask} update={update}/>}
 
       {openTask && (
@@ -3474,8 +3772,60 @@ function OverviewTab({ t, state, tasks, goTasks, onAgent }) {
   ];
   const pending = tasks.filter(x => x.status === "submitted" || x.status === "flagged").length;
 
+  // 30-day trial — weekly card stack. Powered by Task Planner + Outcome Tracker.
+  const trialDay = (state.clientWeek - 1) * 7 + 4; // crude — Week 3 ~ Day 18
+  const weeks = [
+    { n: 1, label: "Setup",       agent: "Task Planner",      icon: "▢", desc: "Connect WhatsApp, baseline metrics, intern starts.", milestones: ["Concierge live", "Baseline captured", "First task pushed"], status: "done" },
+    { n: 2, label: "First Wins",  agent: "Outcome Tracker",   icon: "▣", desc: "Early outputs land — catalog updates, customer replies.", milestones: ["43 catalog photos updated", "2h saved on Day 6", "+18% replies vs baseline"], status: "done" },
+    { n: 3, label: "Measure",     agent: "Outcome Tracker",   icon: "◐", desc: "Live measurement against JD's success metric. Mid-review delivered.", milestones: ["Mid-review on Day 14", "Walk-in conversion +6pt", "QC sample audit passed"], status: "current" },
+    { n: 4, label: "Decide",      agent: "Outcome Tracker",   icon: "○", desc: "Day 28 outcome report → continue at ₹/mo or stop.", milestones: ["Day 28 report", "Continue / stop decision", "Subscription flips on if continue"], status: "upcoming" },
+  ];
+
   return (
     <>
+      {/* 30-day trial — weekly card stack */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2.5, color: t.muted, textTransform: "uppercase", fontWeight: 700 }}>30-day free trial · Day {trialDay} of 30 · pay only if you continue</div>
+          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 26, letterSpacing: -0.5, lineHeight: 1.15, marginTop: 4 }}>Your trial timeline — planned by <AgentLink name="Task Planner" onAgent={onAgent} theme={t}>Task Planner</AgentLink>, measured by <AgentLink name="Outcome Tracker" onAgent={onAgent} theme={t}>Outcome Tracker</AgentLink>.</div>
+        </div>
+        <div style={{ padding: "6px 12px", borderRadius: 999, background: `color-mix(in oklch, ${t.ok} 12%, transparent)`, color: t.ok, fontSize: 11, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.2, fontWeight: 700, textTransform: "uppercase" }}>● On track</div>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 26 }}>
+        {weeks.map((w, i) => {
+          const isCurrent = w.status === "current";
+          const isDone = w.status === "done";
+          const tone = isDone ? t.ok : isCurrent ? t.accent : t.muted;
+          return (
+            <div key={i} style={{
+              padding: 16, borderRadius: 12,
+              background: isCurrent ? `color-mix(in oklch, ${t.accent} 8%, ${t.surface})` : t.surface,
+              border: `1.5px solid ${isCurrent ? t.accent : isDone ? `color-mix(in oklch, ${t.ok} 30%, transparent)` : t.line}`,
+              position: "relative", overflow: "hidden",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.5, color: tone, fontWeight: 700, textTransform: "uppercase" }}>Week {w.n} · {w.label}</div>
+                <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, color: tone, lineHeight: 1, marginTop: -2 }}>{w.icon}</div>
+              </div>
+              <div style={{ fontSize: 11.5, color: t.ink2, lineHeight: 1.45, marginBottom: 10 }}>{w.desc}</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {w.milestones.map((m, mi) => (
+                  <div key={mi} style={{ fontSize: 11, color: isDone ? t.ink : isCurrent ? t.ink : t.muted, display: "flex", alignItems: "flex-start", gap: 5, lineHeight: 1.4 }}>
+                    <span style={{ color: isDone ? t.ok : isCurrent && mi === 0 ? t.accent : t.muted, fontFamily: "'Geist Mono', monospace", flexShrink: 0 }}>
+                      {isDone ? "✓" : isCurrent && mi === 0 ? "◐" : "·"}
+                    </span>
+                    <span>{m}</span>
+                  </div>
+                ))}
+              </div>
+              {w.agent && <div style={{ position: "absolute", bottom: 8, right: 10, fontSize: 9, fontFamily: "'Geist Mono', monospace", color: t.muted, letterSpacing: 1 }}>
+                <AgentLink name={w.agent} onAgent={onAgent} theme={t} style={{ color: t.muted }}>{w.agent}</AgentLink>
+              </div>}
+            </div>
+          );
+        })}
+      </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 22 }}>
         {metrics.map((m, i) => (
           <div key={i} style={{ padding: 16, borderRadius: 12, background: t.surface, border: `1px solid ${t.line}`, position: "relative", overflow: "hidden" }}>
@@ -3528,7 +3878,7 @@ function OverviewTab({ t, state, tasks, goTasks, onAgent }) {
         <div style={{ padding: 18, borderRadius: 14, background: t.ink, color: "#fff" }}>
           <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.accent, textTransform: "uppercase", fontWeight: 700 }}><AgentLink name="Billing" onAgent={onAgent} theme={t} style={{ color: t.accent }}>Billing</AgentLink> · preview</div>
           <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 40, letterSpacing: -1.5, lineHeight: 1, marginTop: 8 }}>₹0</div>
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>Free trial · 7 days left</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 4 }}>Free trial · 16 days left of 30</div>
           <div style={{ height: 1, background: "rgba(255,255,255,0.1)", margin: "14px 0" }}/>
           <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.75)", lineHeight: 1.6 }}>After 14 days: <b style={{ color: "#fff" }}>{state.clientMatched.rate.split(" · ")[0]}</b> — only if you renew. Cancel in 2 clicks.</div>
           <button style={{ marginTop: 14, width: "100%", padding: "10px", background: t.accent, color: t.accentInk, border: 0, borderRadius: 8, cursor: "pointer", fontFamily: "inherit", fontSize: 12.5, fontWeight: 700 }}>Continue after trial</button>
@@ -3742,6 +4092,92 @@ function TaskDetail({ t, task, onClose, onApprove, onRevise, onAgent }) {
   );
 }
 
+// ─── WhatsApp panel — Rameshbhai's quick-chat interface (the Client Concierge) ───
+function WhatsAppPanel({ t, state, onAgent }) {
+  const name = state.clientMatched.n.split(" ")[0];
+  const thread = [
+    { from: "concierge", time: "09:14", msg: `Good morning Rameshbhai 🙏 ${name} ne aaj 12 catalog photos update ki — Banarasi sarees ka new arrival. Aap dekhna chahenge?` },
+    { from: "you",       time: "09:18", msg: "Haan bhej." },
+    { from: "concierge", time: "09:18", msg: "[3 photo previews]\nDownload all → tap karo." },
+    { from: "you",       time: "11:02", msg: `${name} ne kaha tha pricing tactics roleplay karega aaj?` },
+    { from: "concierge", time: "11:02", msg: "Haan, abhi 2 walk-in customers ke saath kiya. 1 conversion · ₹12,400 sale. Detail Platform tab pe hai." },
+    { from: "you",       time: "14:30", msg: "Inventory tracker chal raha hai kya?" },
+    { from: "concierge", time: "14:30", msg: "Install ho gaya. Kal subah se low-stock alerts SKU-wise milenge. Sample alert chahiye?" },
+    { from: "you",       time: "17:45", msg: "Aaj ka summary?" },
+    { from: "concierge", time: "17:45", msg: "Day 14 — On track ✓\n• 12 catalog updates\n• 2h saved\n• ₹12,400 sale (1 conv)\n• Walk-in conv 34% (+6pt this week)\n\nField Monitor verified. Mid-review tomorrow 10 AM." },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 16, animation: "fadeUp .3s" }}>
+      {/* WhatsApp chat */}
+      <div style={{ background: "#0B141A", borderRadius: 14, overflow: "hidden", display: "flex", flexDirection: "column", height: 620 }}>
+        {/* WA header */}
+        <div style={{ padding: "12px 16px", background: "#202C33", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 38, height: 38, borderRadius: 19, background: t.accent, color: t.accentInk, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Instrument Serif', serif", fontSize: 18 }}>D</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ color: "#fff", fontSize: 14, fontWeight: 600 }}>D2D Concierge</div>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontFamily: "'Geist Mono', monospace" }}>
+              <AgentLink name="Client Concierge" onAgent={onAgent} theme={t} style={{ color: "rgba(255,255,255,0.5)" }}>Client Concierge</AgentLink> · online · replies in 9s
+            </div>
+          </div>
+          <span style={{ width: 8, height: 8, borderRadius: 4, background: t.ok, animation: "pulse 1.2s infinite" }}/>
+        </div>
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: "auto", padding: 14, display: "flex", flexDirection: "column", gap: 6, background: "linear-gradient(180deg, #0B141A 0%, #111A21 100%)" }}>
+          {thread.map((m, i) => {
+            const mine = m.from === "you";
+            return (
+              <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start" }}>
+                <div style={{
+                  maxWidth: "78%", padding: "7px 11px 5px",
+                  borderRadius: mine ? "10px 10px 2px 10px" : "10px 10px 10px 2px",
+                  background: mine ? "#005C4B" : "#202C33",
+                  color: "#E9EDEF", fontSize: 13, lineHeight: 1.45,
+                  fontFamily: window.d2dTokens?.font?.deva || "'Geist', sans-serif",
+                  whiteSpace: "pre-wrap",
+                }}>
+                  {m.msg}
+                  <div style={{ fontSize: 9.5, color: "rgba(233,237,239,0.45)", textAlign: "right", marginTop: 2, fontFamily: "'Geist Mono', monospace" }}>{m.time}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {/* Input mock */}
+        <div style={{ padding: 10, background: "#202C33", display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ flex: 1, padding: "9px 14px", borderRadius: 18, background: "#2A3942", color: "rgba(255,255,255,0.45)", fontSize: 13 }}>Type a message...</div>
+          <div style={{ width: 36, height: 36, borderRadius: 18, background: t.accent, color: t.accentInk, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>➤</div>
+        </div>
+      </div>
+
+      {/* Sidebar explainer */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ padding: 18, borderRadius: 12, background: t.surface, border: `1px solid ${t.line}` }}>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.accent, fontWeight: 700, textTransform: "uppercase" }}>Why two interfaces?</div>
+          <div style={{ fontFamily: "'Instrument Serif', serif", fontSize: 22, letterSpacing: -0.3, lineHeight: 1.2, marginTop: 6 }}>WhatsApp for speed.<br/>Platform for outcomes.</div>
+          <div style={{ fontSize: 12.5, color: t.ink2, marginTop: 10, lineHeight: 1.55 }}>
+            Rameshbhai stays on WhatsApp all day. Concierge replies in 9s — questions, approvals, "kya kar raha hai".
+            <br/><br/>
+            For weekly reviews, the 30-day timeline, task approval, and Day-28 decision — the Platform tab. Same data, two windows.
+          </div>
+        </div>
+        <div style={{ padding: 16, borderRadius: 12, background: t.ink, color: "#fff" }}>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.accent, fontWeight: 700, textTransform: "uppercase" }}>Behind this chat</div>
+          <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.85)", lineHeight: 1.6, marginTop: 8 }}>
+            Every reply you see is <AgentLink name="Client Concierge" onAgent={onAgent} theme={t} style={{ color: t.accent }}>Client Concierge</AgentLink>.
+            Activity comes from <AgentLink name="Field Monitor" onAgent={onAgent} theme={t} style={{ color: t.accent }}>Field Monitor</AgentLink> watching the engagement.
+            Anger / scope drift → auto-escalated to <AgentLink name="Quality Controller" onAgent={onAgent} theme={t} style={{ color: t.accent }}>QC</AgentLink>.
+            Day 28 → <AgentLink name="Outcome Tracker" onAgent={onAgent} theme={t} style={{ color: t.accent }}>Outcome Tracker</AgentLink> presents the report, you tap continue or stop.
+          </div>
+        </div>
+        <div style={{ padding: 14, borderRadius: 10, background: `color-mix(in oklch, ${t.accent} 8%, ${t.surface})`, border: `1px solid color-mix(in oklch, ${t.accent} 30%, transparent)` }}>
+          <div style={{ fontSize: 11, color: t.ink, lineHeight: 1.55 }}><b>Pricing reminder:</b> 30 days free. On Day 30 you'll see the outcome and one button: <em>Continue at ₹X/mo</em> or <em>Stop</em>. No invoice before Day 30.</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 Object.assign(window, { ClientApp });
 
 </script>
@@ -3820,7 +4256,7 @@ function OperatorApp({ theme, state, patch }) {
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {open === 0 && <button onClick={reset} style={{ padding: "10px 16px", background: t.ink, color: "#fff", border: 0, borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 }}>↻ New day</button>}
-          <Pill theme={t} tone="ok">● 15 agents healthy</Pill>
+          <Pill theme={t} tone="ok">● 22 agents healthy</Pill>
         </div>
       </div>
 
@@ -3883,7 +4319,7 @@ function OperatorApp({ theme, state, patch }) {
       {/* Agent fleet — phase-grouped, all clickable */}
       <div style={{ marginTop: 22 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
-          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: 2.5, color: t.muted, textTransform: "uppercase", fontWeight: 700 }}>Agent fleet · 15 BUILD + 4 DEPLOY · all online</div>
+          <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: 2.5, color: t.muted, textTransform: "uppercase", fontWeight: 700 }}>Agent fleet · 15 candidate + 7 client + 4 DEPLOY · all online</div>
           <div style={{ fontFamily: "'Geist Mono', monospace", fontSize: 10, letterSpacing: 1.5, color: t.muted, fontWeight: 600 }}>click any agent for full operating manual</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -4253,14 +4689,15 @@ function InvestorApp({ theme, state, patch }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
         <div>
           <div style={{ fontFamily: mono, fontSize: 10, letterSpacing: 2.5, color: t.accent, textTransform: "uppercase", fontWeight: 700 }}>
-            Investor view · Project 1 BUILD · April 2026
+            Investor view · AI Intern Platform · April 2026
           </div>
           <div style={{ fontFamily: serif, fontSize: 58, letterSpacing: -2, lineHeight: 0.98, marginTop: 10, maxWidth: 980, fontWeight: 400 }}>
-            15 agents. <em style={{ color: t.accent }}>One human.</em> A consultant factory.
+            22 agents. <em style={{ color: t.accent }}>One human.</em> A two-sided AI intern platform.
           </div>
-          <div style={{ fontSize: 13, color: t.ink2, marginTop: 10, maxWidth: 720, lineHeight: 1.55 }}>
-            From fresher to deployment-ready AI Consultant in 4 levels, 3 gate exams, and ≤ 90 days. 100% D2D owned.
-            One human touchpoint: Monday review of Saturday exam edge cases. Click any agent to see its full operating manual.
+          <div style={{ fontSize: 13, color: t.ink2, marginTop: 10, maxWidth: 820, lineHeight: 1.55 }}>
+            On one side: tier-2/3 graduates trained to be AI interns in ≤ 90 days.
+            On the other: MSMEs who get a free 30-day trial — pay only if the outcome lands.
+            Both funnels run on the same 22-agent OS. Click any agent for its operating manual.
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -4356,7 +4793,7 @@ function InvestorApp({ theme, state, patch }) {
         {[
           { k: "The moat", t: "D2D Rank", d: "A living, publicly verifiable score. Once employers hire by it, switching costs shift to us — not to any individual tool." },
           { k: "The wedge", t: "Tier-2 + WhatsApp", d: "No app install, Hindi/regional-first, ₹0 up-front fee. BYJU's and Upgrad can't reach this user without breaking their own economics." },
-          { k: "The engine", t: "Agent orchestration", d: "15 specialised agents + 1 founder. Every new batch is ~0 marginal human cost. Scale to 5K consultants without hiring." },
+          { k: "The engine", t: "Agent orchestration", d: "22 specialised agents (15 candidate + 7 client) + 1 founder. Every new batch and every new client is ~0 marginal human cost. Scale to 5K interns and 50K clients without hiring." },
         ].map((b, i) => (
           <div key={i} style={{ padding: 24, borderRadius: 14, background: t.surface, border: `1px solid ${t.line}` }}>
             <div style={{ fontSize: 10, fontFamily: mono, letterSpacing: 2, color: t.accent, textTransform: "uppercase", fontWeight: 700 }}>{b.k}</div>
