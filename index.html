@@ -1,35 +1,28 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8"/>
+<html lang="en"><head><meta charset="utf-8"/>
 <title>D2D AI OS · live prototype</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet"/>
 <style>
-  html, body { margin: 0; padding: 0; background: #0F0D08; font-family: 'Geist', ui-sans-serif, system-ui, sans-serif; color: #F2EADB; overflow: hidden; }
-  * { box-sizing: border-box; }
-  body { height: 100vh; }
-  em { font-style: italic; }
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(242,234,219,0.08); border-radius: 5px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(242,234,219,0.16); }
-  @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  @keyframes pulse { 0%, 100% { opacity: 1 } 50% { opacity: 0.35 } }
-  @keyframes slide { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
-  @keyframes slideInR { from { transform: translateX(100%); } to { transform: none; } }
-  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-</style>
-</head>
-<body>
+html,body{margin:0;padding:0;background:#0F0D08;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;color:#F2EADB;overflow:hidden}
+*{box-sizing:border-box} body{height:100vh} em{font-style:italic}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(242,234,219,0.08);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:rgba(242,234,219,0.16)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes slide{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
+@keyframes slideInR{from{transform:translateX(100%)}to{transform:none}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style></head><body>
 <div id="root"></div>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
-<script>
-/* ===== shared/tokens.js ===== */
+<script>/* shared/tokens.js */
 // Shared design tokens for D2D screens.
 // Two themes: "bharat" (warm off-white, ink, saffron-adjacent accent)
 // and "cockpit" (dark navy, electric accent). Density + light/dark.
@@ -132,8 +125,7 @@ window.resolveTheme = function(themeKey, mode) {
 };
 
 </script>
-<script>
-/* ===== shared/tasks.js ===== */
+<script>/* shared/tasks.js */
 // Shared task model — threads through candidate → operator → client personas.
 // Each task belongs to a deployment (clientId + consultantId).
 
@@ -227,8 +219,7 @@ window.d2dTasks = (() => {
 })();
 
 </script>
-<script>
-/* ===== shared/agents-catalog.js ===== */
+<script>/* shared/agents-catalog.js */
 // Agent catalog — single source of truth.
 // Source: D2D AI Consultant Academy · Project 1: BUILD · Agent Operating Manual (April 2026).
 // 15 BUILD agents fully specified. Project 2 DEPLOY agents stubbed for forward-compat.
@@ -250,6 +241,7 @@ window.AGENT_PHASES = [
 ];
 
 window.MANDATORY_RULES = [
+  { rule: "Pass-outs + job-seekers only · NO 1st/2nd/3rd-year students", consequence: "Polite rejection at Sourcer step", by: "Sourcer → audit by Orchestrator" },
   { rule: "90 days max to clear all 4 levels", consequence: "Automatic removal", by: "Orchestrator" },
   { rule: "Miss 2 weekly live sessions", consequence: "Formal warning", by: "Live Session Tracker → Orchestrator" },
   { rule: "Miss 4 weekly live sessions", consequence: "Removed from program", by: "Orchestrator" },
@@ -310,11 +302,13 @@ window.AGENT_CATALOG = {
 
   "Sourcer": {
     phase: "Acquisition",
+    audience: "Candidate-facing. HARD FILTER: pass-outs and job-seekers only. NO 1st / 2nd / 3rd-year students. (Reason: academic pressure → low commitment → bad outcomes for both candidate and client. Summer-intern window may open later as a separate segment.)",
     role: "The scout who finds candidates on public surfaces and opens the WhatsApp thread.",
     reportsTo: "Campaign Planner",
     handsOffTo: ["Sales Advisor (MAYBE)", "Selection Bot (YES)"],
     mission: "Find tier-2/3 graduates who match the Campaign Brief and open a real conversation — not a generic blast.",
     jobDescription: [
+      "ENFORCE audience filter: pass-outs + job-seekers only. Reject 1st/2nd/3rd-year students with a polite 'come back after final year' message.",
       "Search LinkedIn, Naukri, college groups, and other public surfaces for matches.",
       "Send a personalised first message based on profile: degree, city, language.",
       "Open a WhatsApp thread.",
@@ -330,8 +324,9 @@ window.AGENT_CATALOG = {
       { kra: "YES conversion", measure: "% of responders who say YES immediately." },
       { kra: "MAYBE rate", measure: "% of responders tagged MAYBE → Sales Advisor." },
       { kra: "Quality of sourcing", measure: "% of YES candidates who eventually pass Selection Bot." },
+      { kra: "Audience-filter compliance", measure: "Zero 1st/2nd/3rd-year students admitted. Audited weekly." },
     ],
-    flowLogic: "Activates on Campaign Brief receipt. Runs daily across assigned channels. Every response classified immediately. YES → Selection Bot (must still earn it). MAYBE → Sales Advisor. NO → logged. Daily numbers reported to Orchestrator.",
+    flowLogic: "Activates on Campaign Brief receipt. Runs daily across assigned channels. FIRST check: is this candidate a pass-out or job-seeker? If still in 1st/2nd/3rd year → reject politely, log, do not progress. Else classify response immediately. YES → Selection Bot (must still earn it). MAYBE → Sales Advisor. NO → logged. Daily numbers reported to Orchestrator.",
     whatCanGoWrong: [
       "Generic messages that feel like spam, killing response rates.",
       "Wrong language detected: Hindi sent to a Tamil-speaking candidate.",
@@ -1159,8 +1154,7 @@ window.AGENT_CATALOG = {
 };
 
 </script>
-<script type="text/babel">
-/* ===== shared/ui.jsx ===== */
+<script type="text/babel">/* shared/ui.jsx */
 // Shared primitive UI components. Consumed by every screen via window.*
 
 const { useState, useEffect, useRef, useMemo } = React;
@@ -1385,8 +1379,7 @@ const Logo = ({ size = 22, theme, style, horizontal = true }) => (
 Object.assign(window, { Icon, Pill, Button, Card, Stat, Placeholder, Eyebrow, SparkBars, Ring, Logo });
 
 </script>
-<script type="text/babel">
-/* ===== shared/ios-frame.jsx ===== */
+<script type="text/babel">/* shared/ios-frame.jsx */
 
 // iOS.jsx — Simplified iOS 26 (Liquid Glass) device frame
 // Based on the iOS 26 UI Kit + Figma status bar spec. No assets, no deps.
@@ -1727,8 +1720,7 @@ Object.assign(window, {
 });
 
 </script>
-<script type="text/babel">
-/* ===== shared/agent-detail.jsx ===== */
+<script type="text/babel">/* shared/agent-detail.jsx */
 // Slide-in drawer that reveals full agent metadata on click.
 // Driven by window.AGENT_CATALOG (PDF-faithful). Bharat Bold styling.
 
@@ -1966,8 +1958,7 @@ function AgentDetail({ agentKey, theme, onClose }) {
 Object.assign(window, { AgentDetail });
 
 </script>
-<script type="text/babel">
-/* ===== proto/shell.jsx ===== */
+<script type="text/babel">/* proto/shell.jsx */
 // Shell — left sidebar + workspace switcher + top context bar.
 
 function Shell({ theme, themeDark, state, patch }) {
@@ -2046,8 +2037,7 @@ function Shell({ theme, themeDark, state, patch }) {
 Object.assign(window, { Shell });
 
 </script>
-<script type="text/babel">
-/* ===== proto/welcome.jsx ===== */
+<script type="text/babel">/* proto/welcome.jsx */
 // Welcome screen — owner's first look.
 
 function Welcome({ theme, go }) {
@@ -2064,8 +2054,8 @@ function Welcome({ theme, go }) {
 
       <div style={{ marginTop: 48, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16, maxWidth: 1100 }}>
         {[
-          { id: "candidate", n: "①", t: "Candidate workspace", who: "What Priya sees", d: "WhatsApp intake, bootcamp day, Friday's gate test, the rank she earns.", tags: ["WhatsApp-first", "Mobile", "Hindi/English"], c: theme.accent },
-          { id: "client",    n: "②", t: "Client workspace",    who: "What Rameshbhai sees", d: "Pick from 3 matched consultants, then a daily dashboard of what yours did today.", tags: ["MSME owner", "Gujarati + Hindi", "No jargon"], c: theme.info },
+          { id: "candidate", n: "①", t: "Candidate workspace", who: "What Priya sees", d: "WhatsApp intake, bootcamp day, Friday's gate test, the rank she earns. Pass-outs + job-seekers only.", tags: ["WhatsApp-first", "Pass-outs only", "Hindi/English"], c: theme.accent },
+          { id: "client",    n: "②", t: "Client workspace",    who: "What Rameshbhai sees", d: "Ad → JD upload → 3 matched interns → 30 days free → outcome → pay or stop.", tags: ["MSME owner", "30-day free trial", "WhatsApp + Platform"], c: theme.info },
           { id: "operator",  n: "③", t: "Operator workspace",  who: "What Anjali sees", d: "Today's decisions. Four cards, four clicks, one human managing 173 consultants.", tags: ["Founder-only", "Delegated ops", "22 agents"], c: theme.ok },
           { id: "investor",  n: "④", t: "Investor workspace",  who: "What the board sees", d: "Live pulse, unit economics, defensibility. Same data Anjali runs on, framed for capital.", tags: ["Live metrics", "Unit econ", "Moat"], c: theme.warn },
         ].map(c => (
@@ -2112,8 +2102,7 @@ function Welcome({ theme, go }) {
 Object.assign(window, { Welcome });
 
 </script>
-<script type="text/babel">
-/* ===== proto/candidate-app.jsx ===== */
+<script type="text/babel">/* proto/candidate-app.jsx */
 // Candidate workspace — end-to-end journey from Day 0 (first ping) to placement.
 // WhatsApp feels real (no buttons, messages just arrive). Every event is attributed
 // to a BUILD or DEPLOY agent. Running cost-per-candidate meter ticks on the right.
@@ -2156,6 +2145,7 @@ function CandidateApp({ theme, themeDark, state, patch }) {
     {
       id: "p0", day: 0, when: "Mon · 8:02 AM", title: "First contact",
       events: [
+        { a: "sourcer", kind: "sys", msg: "Audience filter applied · pass-outs + job-seekers only · NO 1st/2nd/3rd-year students. Priya is BCom 2025 pass-out → eligible." },
         { a: "sourcer", kind: "wa", from: "them", msg: "Hi Priya 👋", calls: 1 },
         { a: "sourcer", kind: "wa", from: "them", msg: "Priyanka from D2D. Saw your LinkedIn — BCom grad, job hunting? Our 4-week bootcamp starts Monday. WhatsApp-only, no upfront fee. 173 placements done.", calls: 1 },
         { a: "sourcer", kind: "wa", from: "you",  msg: "Tell me more. Kitna paisa lagega?", calls: 0 },
@@ -2890,8 +2880,7 @@ function MentorDrill({ theme, AGENTS }) {
 Object.assign(window, { CandidateApp });
 
 </script>
-<script type="text/babel">
-/* ===== proto/candidate-extras.jsx ===== */
+<script type="text/babel">/* proto/candidate-extras.jsx */
 // Technical track + Student Profile components.
 // Loaded by candidate-app.jsx via script tag in D2D Prototype.html.
 
@@ -3249,8 +3238,7 @@ function CandidateTasks({ theme, AGENTS }) {
 Object.assign(window, { TechTrack, StudentProfile, CandidateTasks });
 
 </script>
-<script type="text/babel">
-/* ===== proto/client-app.jsx ===== */
+<script type="text/babel">/* proto/client-app.jsx */
 // Client workspace — Rameshbhai's view.
 // States: "match" (browsing) → "detail" (deep dive on one candidate) → "dashboard" (after confirm).
 
@@ -4181,8 +4169,7 @@ function WhatsAppPanel({ t, state, onAgent }) {
 Object.assign(window, { ClientApp });
 
 </script>
-<script type="text/babel">
-/* ===== proto/operator-app.jsx ===== */
+<script type="text/babel">/* proto/operator-app.jsx */
 // Operator workspace — Anjali's cockpit.
 
 // Map any operator-side agent label to its AGENT_CATALOG key.
@@ -4257,6 +4244,7 @@ function OperatorApp({ theme, state, patch }) {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           {open === 0 && <button onClick={reset} style={{ padding: "10px 16px", background: t.ink, color: "#fff", border: 0, borderRadius: 10, cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 600 }}>↻ New day</button>}
           <Pill theme={t} tone="ok">● 22 agents healthy</Pill>
+          <Pill theme={t} tone="accent">★ 12 internal · D2D ops</Pill>
         </div>
       </div>
 
@@ -4586,8 +4574,7 @@ function PortfolioTaskHealth({ t, openByLabel }) {
 Object.assign(window, { OperatorApp });
 
 </script>
-<script type="text/babel">
-/* ===== proto/investor-app.jsx ===== */
+<script type="text/babel">/* proto/investor-app.jsx */
 // Investor workspace — BUILD pipeline: 15 agents, phase-grouped, every card clickable.
 // Source of truth: D2D Project 1 BUILD Agent Operating Manual (April 2026).
 
@@ -4706,6 +4693,20 @@ function InvestorApp({ theme, state, patch }) {
         </div>
       </div>
 
+      {/* Eating our own cooking */}
+      <div style={{ padding: "14px 18px", borderRadius: 12, background: t.surface, border: `1px solid ${t.line}`, borderLeft: `4px solid ${t.accent}`, marginBottom: 22, display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 10, fontFamily: mono, letterSpacing: 2, color: t.accent, fontWeight: 700, textTransform: "uppercase" }}>D2D is its own first customer</div>
+          <div style={{ fontSize: 13.5, color: t.ink, marginTop: 4, lineHeight: 1.55 }}>
+            We hire <b>12 AI interns</b> through our own platform for D2D's own ops — sourcing, content, analytics, support.
+            Every release ships against our own engagement before any external client sees it.
+            <span style={{ color: t.muted }}> Eats own cooking — and proves the platform monthly.</span>
+          </div>
+        </div>
+        <div style={{ fontFamily: serif, fontSize: 44, color: t.accent, letterSpacing: -1, lineHeight: 1 }}>12</div>
+        <div style={{ fontSize: 10, fontFamily: mono, color: t.muted, letterSpacing: 1.2, textTransform: "uppercase", fontWeight: 700, maxWidth: 80, lineHeight: 1.3 }}>internal<br/>engagements</div>
+      </div>
+
       {/* Headline numbers */}
       <div style={{ padding: 28, borderRadius: 14, background: t.ink, color: "#fff", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 32, marginBottom: 26 }}>
         {headline.map((m, i) => (
@@ -4813,19 +4814,7 @@ Object.assign(window, { InvestorApp });
 </script>
 <script type="text/babel">
 
-function App() {
-  const [state, setState] = React.useState({
-    priyaBatch: 19, priyaDay: 14, priyaStreak: 13, priyaRank: null, priyaScore: null,
-    clientMatched: null, clientWeek: 3, queueResolved: [],
-    pulse: { sourcer: 847, cs: 312, onboard: 89, trainer: 1247, mentor: 2108, examiner: 184, ranker: 16, match: 34, field: 612, qc: 28 },
-  });
-  const patch = (p) => setState(s => ({ ...s, ...p }));
-  const theme = window.resolveTheme("bharat", "light");
-  const themeDark = window.resolveTheme("bharat", "dark");
-  return <Shell theme={theme} themeDark={themeDark} state={state} patch={patch}/>;
-}
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+function App(){const[s,setS]=React.useState({priyaBatch:19,priyaDay:14,priyaStreak:13,priyaRank:null,priyaScore:null,clientMatched:null,clientWeek:3,queueResolved:[],pulse:{sourcer:847,cs:312,onboard:89,trainer:1247,mentor:2108,examiner:184,ranker:16,match:34,field:612,qc:28}});const p=x=>setS(o=>({...o,...x}));return <Shell theme={window.resolveTheme("bharat","light")} themeDark={window.resolveTheme("bharat","dark")} state={s} patch={p}/>;}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
-</script>
-</body>
-</html>
+</script></body></html>
