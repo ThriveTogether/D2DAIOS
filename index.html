@@ -1,24 +1,14 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"/>
+<!doctype html><html lang="en"><head><meta charset="utf-8"/>
 <title>D2D AI OS · live prototype</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&family=Tiro+Devanagari+Hindi:ital@0;1&display=swap" rel="stylesheet"/>
 <style>
-html,body{margin:0;padding:0;background:#0F0D08;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;color:#F2EADB;overflow:hidden}
-*{box-sizing:border-box} body{height:100vh} em{font-style:italic}
-::-webkit-scrollbar{width:10px;height:10px}
-::-webkit-scrollbar-track{background:transparent}
-::-webkit-scrollbar-thumb{background:rgba(242,234,219,0.08);border-radius:5px}
-::-webkit-scrollbar-thumb:hover{background:rgba(242,234,219,0.16)}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes slide{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
-@keyframes slideInR{from{transform:translateX(100%)}to{transform:none}}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-</style></head><body>
-<div id="root"></div>
+html,body{margin:0;padding:0;background:#0F0D08;font-family:'Geist',ui-sans-serif,system-ui,sans-serif;color:#F2EADB;overflow:hidden}*{box-sizing:border-box}body{height:100vh}em{font-style:italic}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(242,234,219,0.08);border-radius:5px}::-webkit-scrollbar-thumb:hover{background:rgba(242,234,219,0.16)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}@keyframes slide{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}@keyframes slideInR{from{transform:translateX(100%)}to{transform:none}}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+</style></head><body><div id="root"></div>
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
@@ -3272,6 +3262,14 @@ const clientNameToCatalog = (name) => {
     "Peer Mentor System": "Peer Mentor System",
     "Live Session Tracker": "Live Session Tracker",
     "Campaign Planner": "Campaign Planner",
+    // Client-side agents (added with the two-sided platform expansion)
+    "Client Sourcer": "Client Sourcer",
+    "Client Sales Advisor": "Client Sales Advisor",
+    "Client Onboarding": "Client Onboarding",
+    "JD Generator": "JD Generator",
+    "Task Planner": "Task Planner",
+    "Client Concierge": "Client Concierge",
+    "Outcome Tracker": "Outcome Tracker",
   };
   // tolerate suffixes like "Field Monitor verified"
   for (const k of Object.keys(map)) if (n.startsWith(k)) return map[k];
@@ -3293,6 +3291,27 @@ function AgentLink({ name, onAgent, theme, style, children }) {
         ...style,
       }}
     >{children ?? name}</button>
+  );
+}
+
+// Single step card in the full client journey strip.
+// `s` = { a, step, t, desc }; `chip` = the phase color used for step badge + agent label.
+function JourneyStep({ s, t, onAgent, chip }) {
+  return (
+    <div style={{ padding: "10px 12px", background: t.bg, border: `1px solid ${t.line2}`, borderRadius: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+        <span style={{
+          minWidth: 18, height: 18, borderRadius: 9, background: chip, color: "#fff",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700, padding: "0 4px",
+        }}>{s.step}</span>
+        <div style={{ fontSize: 9, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.2, color: t.muted, fontWeight: 700, textTransform: "uppercase" }}>{s.t}</div>
+      </div>
+      <div style={{ fontSize: 11, color: t.ink2, lineHeight: 1.4, marginBottom: 6 }}>{s.desc}</div>
+      <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", fontWeight: 700 }}>
+        <AgentLink name={s.a} onAgent={onAgent} theme={t} style={{ color: chip }}>{s.a}</AgentLink>
+      </div>
+    </div>
   );
 }
 
@@ -3434,30 +3453,56 @@ function MatchFlow({ t, onMatch, onAgent }) {
 
   return (
     <>
-      {/* Client acquisition journey banner — what happened before this screen */}
+      {/* Full client journey — acquisition → engagement → outcome → pay */}
       <div style={{ padding: 16, borderRadius: 12, background: t.surface, border: `1px solid ${t.line}`, marginBottom: 20 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.muted, fontWeight: 700, textTransform: "uppercase" }}>How Rameshbhai got here · the client funnel</div>
-          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 1, color: t.accent, fontWeight: 700 }}>22 minutes · 0 humans</div>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 2, color: t.muted, fontWeight: 700, textTransform: "uppercase" }}>The full client journey · ad → JD → match → 30-day trial → pay</div>
+          <div style={{ fontSize: 10, fontFamily: "'Geist Mono', monospace", letterSpacing: 1, color: t.accent, fontWeight: 700 }}>22 min to hire · 30 days to outcome · 0 humans</div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+
+        {/* Phase 1 — Acquisition (5 steps) */}
+        <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.5, color: t.muted, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 1, background: "#0e7490", marginRight: 6, verticalAlign: 1 }}/>
+          Phase 1 · Acquisition · Day 0 (22 min)
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8, marginBottom: 14 }}>
           {[
-            { a: "Campaign Planner",       step: "1", t: "FB ad", desc: "'Need an AI intern? Free 30 days.' Tapped on Instagram." },
-            { a: "Client Sourcer",         step: "2", t: "WA opens", desc: "Personalised first message in Gujarati. 4-min reply." },
-            { a: "Client Sales Advisor",   step: "3", t: "Objection", desc: "'AI fraud hai?' handled with proof video. 8 min." },
-            { a: "Client Onboarding",      step: "4", t: "Sign-up", desc: "GST + UPI tokenised. Not yet charged. 6 min." },
-            { a: "JD Generator",           step: "5", t: "JD ready", desc: "Voice note → structured JD approved. 4 min." },
+            { a: "Campaign Planner",     step: "1", t: "FB ad",     desc: "'Need an AI intern? Free 30 days.' Tapped on Instagram." },
+            { a: "Client Sourcer",       step: "2", t: "WA opens",  desc: "Personalised first message in Gujarati. 4-min reply." },
+            { a: "Client Sales Advisor", step: "3", t: "Objection", desc: "'AI fraud hai?' handled with proof video. 8 min." },
+            { a: "Client Onboarding",    step: "4", t: "Sign-up",   desc: "GST + UPI tokenised. Not yet charged. 6 min." },
+            { a: "JD Generator",         step: "5", t: "JD ready",  desc: "Voice note → structured JD approved. 4 min." },
           ].map((s, i) => (
-            <div key={i} style={{ padding: "10px 12px", background: t.bg, border: `1px solid ${t.line2}`, borderRadius: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={{ width: 16, height: 16, borderRadius: 8, background: t.accent, color: t.accentInk, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: "'Geist Mono', monospace", fontSize: 10, fontWeight: 700 }}>{s.step}</span>
-                <div style={{ fontSize: 9, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.2, color: t.muted, fontWeight: 700, textTransform: "uppercase" }}>{s.t}</div>
-              </div>
-              <div style={{ fontSize: 11, color: t.ink2, lineHeight: 1.4, marginBottom: 6 }}>{s.desc}</div>
-              <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", color: t.accent, fontWeight: 700 }}>
-                <AgentLink name={s.a} onAgent={onAgent} theme={t} style={{ color: t.accent }}>{s.a}</AgentLink>
-              </div>
-            </div>
+            <JourneyStep key={i} s={s} t={t} onAgent={onAgent} chip={t.accent}/>
+          ))}
+        </div>
+
+        {/* Phase 2 — Engagement (3 steps) */}
+        <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.5, color: t.muted, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 1, background: "#7c3aed", marginRight: 6, verticalAlign: 1 }}/>
+          Phase 2 · Engagement · Day 0 → Day 28 (30 days free)
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 14 }}>
+          {[
+            { a: "Matchmaker",       step: "6", t: "Match",       desc: "3 AI interns shortlisted. Rameshbhai picks Priya. Engagement starts tomorrow 11 AM." },
+            { a: "Task Planner",     step: "7", t: "30-day plan", desc: "Week 1 Setup · Week 2 First Wins · Week 3 Measure · Week 4 Decide. Live on Platform tab." },
+            { a: "Client Concierge", step: "8", t: "Live ops",    desc: "WhatsApp 9-sec replies · daily summaries · approvals · Day 14 mid-review." },
+          ].map((s, i) => (
+            <JourneyStep key={i} s={s} t={t} onAgent={onAgent} chip="#7c3aed"/>
+          ))}
+        </div>
+
+        {/* Phase 3 — Outcome & Pay (2 steps) */}
+        <div style={{ fontSize: 9.5, fontFamily: "'Geist Mono', monospace", letterSpacing: 1.5, color: t.muted, fontWeight: 700, textTransform: "uppercase", marginBottom: 6 }}>
+          <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 1, background: t.ok, marginRight: 6, verticalAlign: 1 }}/>
+          Phase 3 · Outcome & Pay · Day 28 → Day 30
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+          {[
+            { a: "Outcome Tracker", step: "9",  t: "Day 28 report",   desc: "Hard numbers vs baseline: catalog inquiries +28%, response time 4× faster, walk-in conversion +6pt. Continue or stop." },
+            { a: "Billing",         step: "10", t: "Subscription on", desc: "Rameshbhai taps 'Continue at ₹25K/mo'. UPI charged Day 30. Engagement rolls into Project 2 DEPLOY (Field Monitor, QC, Billing recurring)." },
+          ].map((s, i) => (
+            <JourneyStep key={i} s={s} t={t} onAgent={onAgent} chip={t.ok}/>
           ))}
         </div>
       </div>
@@ -4813,7 +4858,6 @@ Object.assign(window, { InvestorApp });
 
 </script>
 <script type="text/babel">
-
 function App(){const[s,setS]=React.useState({priyaBatch:19,priyaDay:14,priyaStreak:13,priyaRank:null,priyaScore:null,clientMatched:null,clientWeek:3,queueResolved:[],pulse:{sourcer:847,cs:312,onboard:89,trainer:1247,mentor:2108,examiner:184,ranker:16,match:34,field:612,qc:28}});const p=x=>setS(o=>({...o,...x}));return <Shell theme={window.resolveTheme("bharat","light")} themeDark={window.resolveTheme("bharat","dark")} state={s} patch={p}/>;}
 ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
 
